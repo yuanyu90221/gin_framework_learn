@@ -554,6 +554,96 @@ func PutUser(c *gin.Context) {
 
 ```
 
+## 新增 defaultWritter, middleware logger 與 BasicAuth
+
+- [x]  https://www.youtube.com/watch?v=UJfi3ppkqRk
+
+### 設定 gin.DefaultWriter
+
+把 log 寫入一個檔案
+
+更新 main.go 如下
+
+```golang=
+...
+// setup logger
+func setupLogging() {
+	f, _ := os.Create("gin.log")
+	gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
+}
+
+func main () {
+  setupLogging()
+  ...
+}
+...
+```
+
+這樣做把 logger 透過 os.Create 產生一個 fileWriter
+
+先把 os.Stdout 與 fileWriter 包裝成一個 io.Writer
+
+在把 gin.DefaultWriter 指定到這個 io.Writer
+
+這樣一來 gin.Router 接到 logger 除了寫入檔案外, 還有在 os.Stdout 印出執行結果
+
+### 設定 middlewares Logger
+
+透過 middleware 改寫 logger 格式
+
+建立 middlewares/Logger.go
+
+```golang=
+package middlewares
+
+import (
+	"fmt"
+
+	"github.com/gin-gonic/gin"
+)
+
+func Logger() gin.HandlerFunc {
+	return gin.LoggerWithFormatter(func(params gin.LogFormatterParams) string {
+		return fmt.Sprintf("%s - [%s] %s %s %d \n",
+			params.ClientIP,
+			params.TimeStamp,
+			params.Method,
+			params.Path,
+			params.StatusCode,
+		)
+	})
+}
+```
+
+在 main func 內使用 router.Use 來套用
+
+```golang
+...
+func main() {
+  setupLogging()
+  router := gin.Default()
+  router.use(middlewares.Logger())
+  ...
+}
+```
+### basicAuth
+
+BasicAuth 是指在 request header 做帳密驗證
+
+這邊可以透過 gin.BasicAuth 還有 gin.Account 來設定
+
+使用方式如下
+
+```golang=
+func main() {
+  ...
+    router.Use(gin.BasicAuth(
+    gin.Accounts{os.Getenv("BASIC_AUTH_USER"): os.Getenv("BASIC_AUTH_PASSWORD")})
+    )
+  ...
+}
+```
+
 ## TODO
 
 GORM database migration:

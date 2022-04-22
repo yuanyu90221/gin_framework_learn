@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"web/config"
 	"web/database"
+	"web/middlewares"
 	"web/src"
 
 	"github.com/gin-gonic/gin"
@@ -14,8 +16,17 @@ import (
 
 var Config = config.Config{}
 
+func setupLogging() {
+	f, _ := os.Create("gin.log")
+	gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
+}
+
 func main() {
+	setupLogging()
 	router := gin.Default()
+	router.Use(gin.BasicAuth(
+		gin.Accounts{os.Getenv("BASIC_AUTH_USER"): os.Getenv("BASIC_AUTH_PASSWORD")}),
+		middlewares.Logger())
 	Config.Port = os.Getenv("PORT")
 	Config.DBPort = os.Getenv("DB_PORT")
 	Config.DBPassword = os.Getenv("DB_PASSWORD")
