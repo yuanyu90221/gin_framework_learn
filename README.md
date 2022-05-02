@@ -17,7 +17,7 @@ go get github.com/gin-gonic/gin
 
 設定 main.go 在 package main 如下
 
-```golang=
+```go=
 package main
 
 import "github.com/gin-gonic/gin"
@@ -25,7 +25,7 @@ import "github.com/gin-gonic/gin"
 func main () { // entry point
     // create router
     router := gin.Default()
-    
+
     router.Run(":8000") // <--- setup run with port 8000
 }
 ```
@@ -34,24 +34,24 @@ func main () { // entry point
 
 透過 router 可以設定 GET/POST route
 
-```golang=
+```go=
 ...
 /** 
  GET /ping
 **/
 router.GET("/ping", func (c *gin.Context) {
-  c.JSON(200, gin.H{
+    c.JSON(200, gin.H{
       "message": "ping",
-  })
+    })
 })
 /** 
  POST /ping/:id
 **/
 router.POST("/ping/:id", func (c *gin.Context) {
-  id := c.Param("id")
-  c.JSON(200, gin.H{
-    "id": id,
-  })
+    id := c.Param("id")
+        c.JSON(200, gin.H{
+        "id": id,
+    })
 })
 ...
 ```
@@ -60,51 +60,51 @@ router.POST("/ping/:id", func (c *gin.Context) {
 
 ### 建立 User POJO
 
-```golang==
+```go=
 package pojo
 
 type User struct {
-  Id       int `json:"UserId"`
-  Name     string `json:"UserName"`
-  Password string `json:"UserPassword"`
-  Email    string `json:"UserEmail"`
+    Id       int `json:"UserId"`
+    Name     string `json:"UserName"`
+    Password string `json:"UserPassword"`
+    Email    string `json:"UserEmail"`
 }
 ```
 ***Notice*** : json 後面帶入的 key 是 JSON 物件的 key
 
 ### 建立 User Service
 
-```golang=
+```go=
 package service
 
 import (
-  "web/pojo"
-  "net/http"
-  "github.com/gin-gonic/gin"
+    "web/pojo"
+    "net/http"
+    "github.com/gin-gonic/gin"
 )
 
 var userList = []pojo.User{} // pojo
 // GET /users
 func FindAllUser(c *gin.Context) {
-  c.JSON(http.StatusOK, userList)
+    c.JSON(http.StatusOK, userList)
 }
 // POST /users
 func PostUser(c *gin.Context) {
-  user := pojo.User{}
-  // parse context body into pojo
-  err := c.BindJSON(&user)
-  if err != nil {
+    user := pojo.User{}
+    // parse context body into pojo
+    err := c.BindJSON(&user)
+    if err != nil {
     c.JSON(http.StatusNotAcceptable, "Error:" + err.Error())
     return
-  }
-  userList = append(userList, user)
-  c.JSON(http.StatusCreated, "Successfully created")
+    }
+    userList = append(userList, user)
+    c.JSON(http.StatusCreated, "Successfully created")
 }
 ```
 
 ### 建立 Group for user route
 
-```golang=
+```go=
 package src
 
 import (
@@ -121,7 +121,7 @@ func AddUserRouter(r *gin.RouterGroup) {
 
 ### 加入 main Router
 
-```golang
+```go=
 package main
 
 import (
@@ -144,7 +144,7 @@ func main() {
 
 ### 新增 PUT/DELETE users service
 
-```golang=
+```go=
 ...
 // DELETE User
 func DeleteUser(c *gin.Context) {
@@ -181,7 +181,7 @@ func PutUser(c *gin.Context) {
 ```
 ### 更新 user route
 
-```golang
+```go=
 package src
 
 import (
@@ -211,7 +211,7 @@ gorm.io
 
 Step 1: 建立 Config
 
-```golang=
+```go=
 package config
 
 type Config struct {
@@ -229,7 +229,7 @@ Step 2: 加入 dotenv 並且引入 autoload
 go get github.com/joho/godotenv
 ```
 修改 main 如下
-```golang=
+```go=
 package main
 
 import (
@@ -266,7 +266,7 @@ mkdir database
 touch DBConnect.go
 ```
 
-```golang=
+```go=
 package database
 
 import (
@@ -303,7 +303,7 @@ func DB(config *config.Config) {
 
 Step 4: 把 DBConnect 以 goroutine 方式引入
 
-```golang
+```go=
 package main
 
 import (
@@ -341,7 +341,7 @@ func main() {
 
 Step 5: 把存取邏輯放到 pojo
 
-```golang=
+```go=
 package pojo
 
 import "web/database"
@@ -388,7 +388,7 @@ INSERT INTO users (id, name, password, email) VALUES
 ```
 STEP 7: 更新 service 與 router
 
-```golang=
+```go=
 ...
 // Get User
 func FindAllUsers(c *gin.Context) {
@@ -409,7 +409,7 @@ func FindUserWithId(c *gin.Context) {
 }
 ...
 ```
-```golang=
+```go=
 package src
 
 import (
@@ -434,7 +434,7 @@ func AddUserRouter(r *gin.RouterGroup) {
 
 Step1: 新增 POST/DELETE/PUT users POJO
 
-```golang=
+```go=
 package pojo
 
 import (
@@ -481,7 +481,7 @@ func UpdateUser(userId int, user User) bool {
 
 Step2: 新增 POST/DELETE/PUT users services
 
-```golang=
+```go=
 package service
 
 import (
@@ -532,7 +532,7 @@ func DeleteUser(c *gin.Context) {
 		c.JSON(http.StatusNotFound, "Delete Resource not found")
 		return
 	}
-	c.JSON(http.StatusOK, "Successfuly Delete")
+	c.JSON(http.StatusOK, "Successfully Delete")
 }
 
 func PutUser(c *gin.Context) {
@@ -554,7 +554,7 @@ func PutUser(c *gin.Context) {
 
 ```
 
-## 新增 defaultWritter, middleware logger 與 BasicAuth
+## 新增 defaultWriter, middleware logger 與 BasicAuth
 
 - [x]  https://www.youtube.com/watch?v=UJfi3ppkqRk
 
@@ -564,7 +564,7 @@ func PutUser(c *gin.Context) {
 
 更新 main.go 如下
 
-```golang=
+```go=
 ...
 // setup logger
 func setupLogging() {
@@ -593,7 +593,7 @@ func main () {
 
 建立 middlewares/Logger.go
 
-```golang=
+```go=
 package middlewares
 
 import (
@@ -617,7 +617,7 @@ func Logger() gin.HandlerFunc {
 
 在 main func 內使用 router.Use 來套用
 
-```golang
+```go=
 ...
 func main() {
   setupLogging()
@@ -634,7 +634,7 @@ BasicAuth 是指在 request header 做帳密驗證
 
 使用方式如下
 
-```golang=
+```go=
 func main() {
   ...
     router.Use(gin.BasicAuth(
@@ -644,6 +644,85 @@ func main() {
 }
 ```
 
+## Validator for input object
+
+ - [x] https://www.youtube.com/watch?v=FUIxUsoTlMM
+ - [x] https://www.youtube.com/watch?v=WRki5zeQ8L8
+
+ [golang validator](https://pkg.go.dev/github.com/go-playground/validator/v10@v10.2.0#section-readme)
+### 安裝 validator 套件
+
+```shell=
+go get github.com/go-playground/validator/v10
+```
+
+在要使用的 module 內 import
+
+```go=
+import "github.com/go-playground/validator/v10"
+```
+### 在要進行驗證的物件 加上 tag
+
+在物件 field 有可以在[default tag lookup](https://pkg.go.dev/github.com/go-playground/validator/v10@v10.2.0#pkg-overview)找到一些可以用的tag
+
+在原本 pojo.User 加入 tag
+
+```go=
+type User struct {
+    Id       int    `json:"UserId" binding:"required"`
+    Name     string `json:"UserName" binding:"gte=5"`
+    Password string `json:"UserPassword" binding:"min=5,max=20"`
+    Email    string `json:"UserEmail" binding:"required,email"`
+}
+```
+
+keyword **binding** 用來指定 tag
+
+
+### 實作字定義的 validator function
+
+在 middlewares 新增 validator.go
+
+```go=
+package middlewares
+
+import (
+  "regexp"
+  "github.com/go-playground/validator/v10"
+)
+
+func UserPassswd(field validator.FieldLevel) bool {
+    if match, _ := regexp.MatchString(`^[A-Z]\w{4,10}$`, field.Field().String()); match {
+       return true
+    }
+    return false
+}
+
+```
+### 在 router 之前註冊 validator
+
+在 main.go 加入註冊子定義的 validator
+
+```go=
+func main() {
+    setupLogging()
+    router := gin.Default()
+    if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
+	v.RegisterValidation("userpasswd", middlewares.UserPassswd)
+    }
+    ...
+}
+```
+把自訂義的 tag 加入 pojo.User
+
+```go=
+type User struct {
+    Id       int    `json:"UserId" binding:"required"`
+    Name     string `json:"UserName" binding:"gte=5"`
+    Password string `json:"UserPassword" binding:"userpasswd,min=5,max=20"`
+    Email    string `json:"UserEmail" binding:"required,email"`
+}
+```
 ## TODO
 
 GORM database migration:

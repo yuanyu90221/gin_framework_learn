@@ -6,10 +6,10 @@ import (
 )
 
 type User struct {
-	Id       int    `json:"UserId"`
-	Name     string `json:"UserName"`
-	Password string `json:"UserPassword"`
-	Email    string `json:"UserEmail"`
+	Id       int    `json:"UserId" binding:"required"`
+	Name     string `json:"UserName" binding:"gte=5"`
+	Password string `json:"UserPassword" binding:"userpasswd,min=5,max=20"`
+	Email    string `json:"UserEmail" binding:"required,email"`
 }
 
 func FindAllUserService() []User {
@@ -25,7 +25,7 @@ func FindByUserId(userId int) User {
 }
 
 func CreateUser(user User) User {
-	database.DBconnect.Create(user)
+	database.DBconnect.Create(&user)
 	return user
 }
 

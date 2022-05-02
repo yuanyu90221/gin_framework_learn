@@ -11,6 +11,8 @@ import (
 	"web/src"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	"github.com/go-playground/validator/v10"
 	_ "github.com/joho/godotenv/autoload"
 )
 
@@ -24,7 +26,10 @@ func setupLogging() {
 func main() {
 	setupLogging()
 	router := gin.Default()
-	router.Use(gin.BasicAuth(
+	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
+		v.RegisterValidation("userpasswd", middlewares.UserPassswd)
+	}
+	router.Use(gin.Recovery(), gin.BasicAuth(
 		gin.Accounts{os.Getenv("BASIC_AUTH_USER"): os.Getenv("BASIC_AUTH_PASSWORD")}),
 		middlewares.Logger())
 	Config.Port = os.Getenv("PORT")

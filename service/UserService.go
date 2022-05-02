@@ -48,7 +48,7 @@ func DeleteUser(c *gin.Context) {
 		c.JSON(http.StatusNotFound, "Delete Resource not found")
 		return
 	}
-	c.JSON(http.StatusOK, "Successfuly Delete")
+	c.JSON(http.StatusOK, "Successfully Delete")
 }
 
 func PutUser(c *gin.Context) {
