@@ -723,6 +723,200 @@ type User struct {
     Email    string `json:"UserEmail" binding:"required,email"`
 }
 ```
+
+## 透過 session 實作 user login/logout
+
+session package: https://github.com/gin-contrib/sessions
+
+- [x] https://www.youtube.com/watch?v=YG9HE40CnEw
+
+### 新增 loginUser
+
+透過 credential 也就是 user/Password 找到 user info
+
+在 pojo.User 新增 checkUserPassword
+
+```go=
+// CheckUserPassword
+func CheckUserPassword(name, password string) User {
+    user := User{}
+    database.DBconnect.Where("name = ? and password = ?", name, password).First(&user)
+    return user
+}
+```
+
+在 service.UserService 實作 loginUser
+
+```go=
+// Login User
+func LoginUser(c *gin.Context) {
+    name := c.PostForm("name")
+    password := c.PostForm("password")
+    user := pojo.CheckUserPassword(name, password)
+    if user.Id == 0 {
+        c.JSON(http.StatusNotFound, "Error")
+        return
+    }
+    middlewares.SaveSession(c, user.Id)
+    c.JSON(http.StatusOK, gin.H{
+        "message": "Login Successfully",
+        "User":    user,
+        "Session": middlewares.GetSession(c),
+    })
+}
+```
+
+在 src.UserRouter 新增 POST /login
+
+```go=
+func AddUserRouter(r *gin.RouterGroup) {
+    user.POST("/login", service.LoginUser)
+}
+```
+### 新增 session 功能
+
+使用 [sessions package](https://github.com/gin-contrib/sessions)
+```shell=
+go get github.com/gin-contrib/sessions
+```
+
+新增 middlewares.session.go 實作 session 操作功能
+
+```go=
+package middlewares
+
+import (
+    "net/http"
+
+    "github.com/gin-contrib/sessions"
+    "github.com/gin-contrib/sessions/cookie"
+    "github.com/gin-gonic/gin"
+)
+
+const userKey = "session_id"
+
+// use cookie to store session id
+func SetSession() gin.HandlerFunc {
+    store := cookie.NewStore([]byte(userKey))
+    return sessions.Sessions("mysession", store)
+}
+
+// user auth session middle
+func AuthSession() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        session := sessions.Default(c)
+        sessionID := session.Get(userKey)
+        if sessionID == nil {
+            c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+                "message": "此頁面需要登入",
+            })
+            return
+        }
+        c.Next()
+    }
+}
+
+// Save Session for User
+func SaveSession(c *gin.Context, userID int) {
+    session := sessions.Default(c)
+    session.Set(userKey, userID)
+    session.Save()
+}
+
+// Clear Session for User
+func ClearSession(c *gin.Context) {
+    session := sessions.Default(c)
+    session.Clear()
+    session.Save()
+}
+
+// Get Session for User
+func GetSession(c *gin.Context) int {
+    session := sessions.Default(c)
+    sessionID := session.Get(userKey)
+    if sessionID == nil {
+        return 0
+    }
+    return sessionID.(int)
+}
+
+// Check Session for User
+func CheckSession(c *gin.Context) bool {
+    session := sessions.Default(c)
+    sessionID := session.Get(userKey)
+    return sessionID != nil
+}
+```
+
+在 service.UserService 的 loginUser 加入 SaveSession
+
+```go=
+func LoginUser(c *gin.Context) {
+    ...
+    middlewares.SaveSession(c, user.Id)
+    c.JSON(http.StatusOK, gin.H{
+        "message": "Login Successfully",
+        "User":    user,
+        "Session": middlewares.GetSession(c),
+    })
+}
+```
+
+新增 logoutUser ， checkUserSession
+```go=
+// Logout Users
+func LogoutUser(c *gin.Context) {
+    middlewares.ClearSession(c)
+    c.JSON(http.StatusOK, gin.H{
+        "message": "Logout Successfully",
+    })
+}
+
+// CheckUserSession
+func CheckUserSession(c *gin.Context) {
+    sessionId := middlewares.GetSession(c)
+    if sessionId == 0 {
+        c.JSON(http.StatusUnauthorized, "Error")
+        return
+    }
+    c.JSON(http.StatusOK, gin.H{
+        "message": "Check Session Successfully",
+        "User":    middlewares.GetSession(c),
+    })
+}
+```
+
+更新 userRouter
+
+```go=
+package src
+
+import (
+    "web/service"
+
+    session "web/middlewares"
+
+    "github.com/gin-gonic/gin"
+)
+
+func AddUserRouter(r *gin.RouterGroup) {
+    user := r.Group("/users", session.SetSession())
+    user.GET("/", service.FindAllUsers)
+    user.GET("/:id", service.FindUserWithId)
+    user.POST("/", service.PostUser)
+    user.PUT("/:id", service.PutUser)
+    user.POST("/login", service.LoginUser)
+    user.GET("/check", service.CheckUserSession)
+    user.Use(session.AuthSession())
+    {
+        // delete user
+        user.DELETE("/:id", service.DeleteUser)
+        // logout user
+        user.GET("/logout", service.LogoutUser)
+    }
+}
+
+```
 ## TODO
 
 GORM database migration:
