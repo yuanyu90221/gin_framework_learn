@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"web/config"
 	"web/database"
@@ -15,8 +14,6 @@ import (
 	"github.com/go-playground/validator/v10"
 	_ "github.com/joho/godotenv/autoload"
 )
-
-var Config = config.Config{}
 
 func setupLogging() {
 	f, _ := os.Create("gin.log")
@@ -32,15 +29,9 @@ func main() {
 	router.Use(gin.Recovery(), gin.BasicAuth(
 		gin.Accounts{os.Getenv("BASIC_AUTH_USER"): os.Getenv("BASIC_AUTH_PASSWORD")}),
 		middlewares.Logger())
-	Config.Port = os.Getenv("PORT")
-	Config.DBPort = os.Getenv("DB_PORT")
-	Config.DBPassword = os.Getenv("DB_PASSWORD")
-	Config.DBUser = os.Getenv("DB_USER")
-	Config.DBName = os.Getenv("DB_NAME")
-	Config.DBHost = os.Getenv("DB_HOST")
-	log.Printf("%v", Config)
+	Config := config.LoadConfig()
 	go func() {
-		database.DB(&Config)
+		database.DB(Config)
 	}()
 	v1 := router.Group("/v1")
 	src.AddUserRouter(v1)

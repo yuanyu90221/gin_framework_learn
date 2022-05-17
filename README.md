@@ -917,6 +917,197 @@ func AddUserRouter(r *gin.RouterGroup) {
 }
 
 ```
+
+## Redis with gin
+
+- [x] https://www.youtube.com/watch?v=sxeP2XZiu9k
+
+### Package use
+
+[redigo](https://pkg.go.dev/github.com/gomodule/redigo) for redis connection
+
+[ffjson](https://pkg.go.dev/github.com/pquerna/ffjson) for json string handle
+
+### Steps
+
+#### 1 建立 Redis 連線
+
+[參考 Pool](https://pkg.go.dev/github.com/gomodule/redigo/redis#Pool)
+
+建立 database/MyRedis
+```go=
+package database
+
+import (
+    "fmt"
+    "time"
+    "web/config"
+
+    "github.com/gomodule/redigo/redis"
+)
+
+var RedisDefaultPool *redis.Pool
+
+func newPool() *redis.Pool {
+	Config := config.GetConfig()
+
+    return &redis.Pool{
+        MaxIdle:     3,
+        IdleTimeout: 240 * time.Second,
+        // Dial or DialContext must be set. When both are set, DialContext takes precedence over Dial.
+        Dial: func() (redis.Conn, error) {
+            return redis.Dial("tcp", fmt.Sprintf("%s:%s", Config.RedisHost, Config.RedisPort), redis.DialPassword(Config.RedisPassword))
+        },
+    }
+}
+
+func init() {
+    RedisDefaultPool = newPool()
+}
+```
+
+#### 2 建立 Decorator Function
+
+```go=
+package service
+
+import (
+    "fmt"
+    "net/http"
+
+    red "web/database"
+
+    "github.com/gin-gonic/gin"
+    "github.com/gomodule/redigo/redis"
+    "github.com/pquerna/ffjson/ffjson"
+)
+
+func CacheOneUseDecorator(h gin.HandlerFunc, param_key string, readKeyPattern string, empty interface{}) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        // load data from redis
+        keyId := c.Param(param_key)
+        redisKey := fmt.Sprintf(readKeyPattern, keyId)
+        conn := red.RedisDefaultPool.Get()
+        defer conn.Close()
+        data, err := redis.Bytes(conn.Do("GET", redisKey))
+        if err != nil {
+            h(c)
+            dbResult, exists := c.Get("dbResult")
+            if !exists {
+                dbResult = empty
+            }
+            redisData, _ := ffjson.Marshal(dbResult)
+            conn.Do("SETEX", redisKey, 30, redisData)
+            c.JSON(http.StatusOK, gin.H{
+                "message": "From DB",
+                "data":    dbResult,
+            })
+            return
+        }
+        ffjson.Unmarshal(data, &empty)
+        c.JSON(http.StatusOK, gin.H{
+            "message": "From Redis",
+            "data":    empty,
+        })
+    }
+}
+
+func CacheUserAllDecorator(h gin.HandlerFunc, readKey string, empty interface{}) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        conn := red.RedisDefaultPool.Get()
+        defer conn.Close()
+        data, err := redis.Bytes(conn.Do("GET", readKey))
+        if err != nil {
+            h(c)
+            dbUserAll, exists := c.Get("dbUserAll")
+            if !exists {
+                dbUserAll = empty
+            }
+            redisData, _ := ffjson.Marshal(dbUserAll)
+            conn.Do("SETEX", readKey, 30, redisData)
+            c.JSON(http.StatusOK, gin.H{
+                "message": "From DB",
+                "data":    dbUserAll,
+            })
+            return
+        }
+        ffjson.Unmarshal(data, &empty)
+        c.JSON(http.StatusOK, gin.H{
+            "message": "From Redis",
+            "data":    empty,
+        })
+    }
+}
+```
+
+#### 3 建立 Service Function
+
+```go=
+// Redis User
+
+func RedisOneUser(c *gin.Context) {
+    id, _ := strconv.Atoi(c.Param("id"))
+    if id == 0 {
+        c.JSON(http.StatusNotFound, "Error")
+        return
+    }
+    user := pojo.User{}
+    database.DBconnect.Find(&user, id)
+    c.Set("dbResult", user)
+}
+
+// Redis All User
+func RedisAllUser(c *gin.Context) {
+    users := []pojo.User{}
+    database.DBconnect.Find(&users)
+    c.Set("dbUserAll", users)
+}
+```
+
+#### 4 替換 Router
+
+```go=
+package src
+
+import (
+    "web/service"
+
+    session "web/middlewares"
+
+    "web/pojo"
+
+    "github.com/gin-gonic/gin"
+)
+
+func AddUserRouter(r *gin.RouterGroup) {
+    user := r.Group("/users", session.SetSession())
+    // user.GET("/", service.FindAllUsers)
+    user.GET("/", service.CacheUserAllDecorator(service.RedisAllUser, "user_all", []pojo.User{}))
+    // user.GET("/:id", service.FindUserWithId)
+    user.GET("/:id", service.CacheOneUseDecorator(service.RedisOneUser, "id", "user_%s", pojo.User{}))
+    user.POST("/", service.PostUser)
+    user.PUT("/:id", service.PutUser)
+    user.POST("/login", service.LoginUser)
+    user.GET("/check", service.CheckUserSession)
+    user.Use(session.AuthSession())
+    {
+        // delete user
+        user.DELETE("/:id", service.DeleteUser)
+        // logout user
+        user.GET("/logout", service.LogoutUser)
+    }
+}
+```
+### 邏輯流程
+
+```mermaid
+graph TD
+  Client[Request] -->|Find Data from Cache| Cache(Search Cache)
+  Cache --> Check{Check if Cache has Data}
+  Check -->|Has Data| Response(Response from Redis)
+  Check -->|No Data| DataBase(Load Data from DB)-->| pass data from DB| Response(Response to Client)
+ DataBase -->|save Data to Cache| CacheStore(Save data to Cache)
+```
 ## TODO
 
 GORM database migration:

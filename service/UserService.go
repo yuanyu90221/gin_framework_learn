@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"web/database"
 	"web/middlewares"
 	"web/pojo"
 
@@ -105,4 +106,24 @@ func CheckUserSession(c *gin.Context) {
 		"message": "Check Session Successfully",
 		"User":    middlewares.GetSession(c),
 	})
+}
+
+// Redis User
+
+func RedisOneUser(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	if id == 0 {
+		c.JSON(http.StatusNotFound, "Error")
+		return
+	}
+	user := pojo.User{}
+	database.DBconnect.Find(&user, id)
+	c.Set("dbResult", user)
+}
+
+// Redis All User
+func RedisAllUser(c *gin.Context) {
+	users := []pojo.User{}
+	database.DBconnect.Find(&users)
+	c.Set("dbUserAll", users)
 }
